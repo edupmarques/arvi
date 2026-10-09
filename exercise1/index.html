@@ -23,7 +23,7 @@
 </head>
 <body>
 
-<a-scene id="scene" renderer="colorManagement: true" cursor="rayOrigin: mouse" raycaster="objects: .clickable">
+<a-scene id="scene" renderer="colorManagement: true">
   <div id="hint">Click the folder to show the portals, then click a portal to switch rooms (mouse or controller trigger).</div>
 
   <a-assets>
@@ -38,6 +38,10 @@
 
   <a-entity id="rig">
     <a-camera look-controls wasd-controls-enabled="false">
+       <a-entity
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 20">
+      </a-entity>
       <a-sphere id="fade" radius="0.4" segments-width="8" segments-height="8"
                 material="color: #000; side: back; shader: flat; transparent: true; opacity: 0"></a-sphere>
     </a-camera>
@@ -242,6 +246,8 @@ function makePanel(info) {
 
 function loadScene(id) {
   const s = SCENES[id];
+  folderOpen = false;
+  folderHover = false;
   sky.setAttribute('src', s.img);
   sky.setAttribute('rotation', `0 ${s.skyRot || 0} 0`);
   hotspots.innerHTML = '';
@@ -249,7 +255,6 @@ function loadScene(id) {
   hotspots.appendChild(makeFolder(s));
   portalBox = document.createElement('a-entity');
   hotspots.appendChild(portalBox);
-  folderOpen = false;
 }
 
 function tweenFade(from, to, ms) {
