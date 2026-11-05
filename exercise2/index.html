@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Space Cinema</title>
+    <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-event-set-component@5.x.x/dist/aframe-event-set-component.min.js"></script>
+
+    <script>
+      AFRAME.registerComponent('play-video', {
+        schema: { type: 'selector' },
+        init: function () {
+          var video = this.data;
+          this.el.addEventListener('click', function () {
+            document.querySelectorAll('a-assets video').forEach(function (v) {
+              v.pause();
+            });
+            video.currentTime = 0;
+            video.play();
+          });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <a-scene webxr="optionalFeatures: hand-tracking;">
+
+      <a-assets>
+        <img id="background" src="assets/night.jpg" />
+
+        <video id="moon" src="assets/videos/moon.mp4" loop playsinline crossorigin="anonymous"></video>
+        <video id="galaxy" src="assets/videos/galaxy.mp4" loop playsinline crossorigin="anonymous"></video>
+        <video id="galaxy2" src="assets/videos/galaxy2.mp4" loop playsinline crossorigin="anonymous"></video>
+        <video id="solar" src="assets/videos/solar.mp4" loop playsinline crossorigin="anonymous"></video>
+
+        <audio id="sound-hover" src="assets/sounds/hover.wav"></audio>
+        <audio id="sound-click" src="assets/sounds/click.wav"></audio>
+
+        <img id="floor-diff" src="assets/textures/dark_rock_02_diff_4k.jpg" />
+        <img id="table-diff" src="assets/textures/metal_plate_diff_4k.jpg" />
+
+        <a-mixin id="button"
+          material="color: #111111"
+          sound__hover="src: #sound-hover; on: mouseenter; volume: 5"
+          sound__click="src: #sound-click; on: click; volume: 0.8"
+          event-set__enter="_event: mouseenter; scale: 1.06 1.06 1.06"
+          event-set__leave="_event: mouseleave; scale: 1 1 1"
+          event-set__down="_event: mousedown; scale: 1 1 0.5"
+          event-set__up="_event: mouseup; scale: 1.06 1.06 1.06"
+          event-set__hide-welcome="_event: click; _target: #welcome; visible: false">
+        </a-mixin>
+      </a-assets>
+
+      <a-entity light="type: ambient; intensity: 1"></a-entity>
+      <a-entity light="type: directional; intensity: 1" position="-1 4 2"></a-entity>
+
+      <a-sky src="#background"></a-sky>
+      <a-circle rotation="-90 0 0" radius="12" material="src: #floor-diff"></a-circle>
+
+      <a-entity id="cinema" position="0 0 -5">
+
+        <a-entity id="screen-unit" position="0 2.6 0">
+          <a-plane position="0 0 -0.02" width="6.3" height="3.6" color="#0b0b12"></a-plane>
+
+          <a-plane id="screen" width="6" height="3.375"
+                   material="shader: flat"></a-plane>
+
+          <a-plane id="welcome" position="0 0 0.01" width="6" height="3.375"
+                   material="shader: flat; color: #0b0b12">
+            <a-text value="Welcome!" font="exo2bold" align="center" color="#ffffff"
+                    width="8" position="0 0.5 0.01"></a-text>
+            <a-text value="Click the buttons on the console&#10;to explore the universe" font="exo2bold"
+                    align="center" color="#ffffff" width="5" position="0 -0.3 0.01"></a-text>
+          </a-plane>
+        </a-entity>
+
+      </a-entity>
+
+      <a-entity id="console" position="0 0.9 -1.2" rotation="-30 0 0">
+        <a-box width="1.7" height="0.7" depth="0.05" material="src: #table-diff; repeat: 2 1"></a-box>
+
+        <a-entity id="top-row" position="0 0.17 0.05">
+          <a-box mixin="button" class="clickable" position="-0.4 0 0"
+                 width="0.7" height="0.25" depth="0.06"
+                 play-video="#moon"
+                 event-set__screen="_event: click; _target: #screen; material.src: #moon"
+                 event-set__light="_event: click; _target: #light-moon; material.color: #2ecc71"
+                 event-set__off-solar="_event: click; _target: #light-solar; material.color: #555"
+                 event-set__off-galaxy="_event: click; _target: #light-galaxy; material.color: #555"
+                 event-set__off-galaxy2="_event: click; _target: #light-galaxy2; material.color: #555">
+            <a-text value="Moon" font="exo2bold" align="center" width="2" position="0 0 0.035"></a-text>
+            <a-sphere id="light-moon" radius="0.03" position="0.28 0.08 0.04" material="color: #555"></a-sphere>
+          </a-box>
+
+          <a-box mixin="button" class="clickable" position="0.4 0 0"
+                 width="0.7" height="0.25" depth="0.06"
+                 play-video="#solar"
+                 event-set__screen="_event: click; _target: #screen; material.src: #solar"
+                 event-set__light="_event: click; _target: #light-solar; material.color: #2ecc71"
+                 event-set__off-moon="_event: click; _target: #light-moon; material.color: #555"
+                 event-set__off-galaxy="_event: click; _target: #light-galaxy; material.color: #555"
+                 event-set__off-galaxy2="_event: click; _target: #light-galaxy2; material.color: #555">
+            <a-text value="Solar System" font="exo2bold" align="center" width="2" position="0 0 0.035"></a-text>
+            <a-sphere id="light-solar" radius="0.03" position="0.28 0.08 0.04" material="color: #555"></a-sphere>
+          </a-box>
+        </a-entity>
+
+        <a-entity id="bottom-row" position="0 -0.17 0.05">
+          <a-box mixin="button" class="clickable" position="-0.4 0 0"
+                 width="0.7" height="0.25" depth="0.06"
+                 play-video="#galaxy"
+                 event-set__screen="_event: click; _target: #screen; material.src: #galaxy"
+                 event-set__light="_event: click; _target: #light-galaxy; material.color: #2ecc71"
+                 event-set__off-moon="_event: click; _target: #light-moon; material.color: #555"
+                 event-set__off-solar="_event: click; _target: #light-solar; material.color: #555"
+                 event-set__off-galaxy2="_event: click; _target: #light-galaxy2; material.color: #555">
+            <a-text value="Galaxy" font="exo2bold" align="center" width="2" position="0 0 0.035"></a-text>
+            <a-sphere id="light-galaxy" radius="0.03" position="0.28 0.08 0.04" material="color: #555"></a-sphere>
+          </a-box>
+
+          <a-box mixin="button" class="clickable" position="0.4 0 0"
+                 width="0.7" height="0.25" depth="0.06"
+                 play-video="#galaxy2"
+                 event-set__screen="_event: click; _target: #screen; material.src: #galaxy2"
+                 event-set__light="_event: click; _target: #light-galaxy2; material.color: #2ecc71"
+                 event-set__off-moon="_event: click; _target: #light-moon; material.color: #555"
+                 event-set__off-solar="_event: click; _target: #light-solar; material.color: #555"
+                 event-set__off-galaxy="_event: click; _target: #light-galaxy; material.color: #555">
+            <a-text value="Galaxy 2" font="exo2bold" align="center" width="2" position="0 0 0.035"></a-text>
+            <a-sphere id="light-galaxy2" radius="0.03" position="0.28 0.08 0.04" material="color: #555"></a-sphere>
+          </a-box>
+        </a-entity>
+      </a-entity>
+
+      <a-entity id="rig" position="0 0 0">
+        <a-camera position="0 1.6 0" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-camera>
+        <a-entity laser-controls="hand: left"
+                  raycaster="objects: .clickable; far: 5; lineColor: #ff4d4d; lineOpacity: 0.6"></a-entity>
+        <a-entity laser-controls="hand: right"
+                  raycaster="objects: .clickable; far: 5; lineColor: #ff4d4d; lineOpacity: 0.6"></a-entity>
+
+        <a-entity hand-tracking-controls="hand: left"></a-entity>
+        <a-entity hand-tracking-controls="hand: right"></a-entity>
+        <a-entity cursor="rayOrigin: xrselect" raycaster="objects: .clickable; far: 5"></a-entity>
+      </a-entity>
+
+    </a-scene>
+  </body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Virtual Tour</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    #hint {
+      position: fixed; left: 12px; bottom: 12px; z-index: 10;
+      font: 500 12px "Montserrat", system-ui, sans-serif; color: #fff;
+      text-transform: uppercase; letter-spacing: .08em;
+      background: rgba(0,0,0,.45); padding: 8px 14px; border-radius: 999px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<a-scene id="scene" renderer="colorManagement: true" cursor="rayOrigin: mouse" raycaster="objects: .clickable">
+  <div id="hint">Click the folder to show the portals, then click a portal to switch rooms (mouse or controller trigger).</div>
+
+  <a-assets>
+    <img id="img1" src="images/valley_of_desolation.jpg" crossorigin="anonymous">
+    <img id="img2" src="images/pretville_street.jpg" crossorigin="anonymous">
+    <img id="img4" src="images/shanghai_bund.jpg" crossorigin="anonymous">
+  </a-assets>
+
+  <a-sky id="sky" src="#img1"></a-sky>
+
+  <a-entity id="hotspots"></a-entity>
+
+  <a-entity id="rig">
+    <a-camera look-controls wasd-controls-enabled="false">
+      <a-sphere id="fade" radius="0.4" segments-width="8" segments-height="8"
+                material="color: #000; side: back; shader: flat; transparent: true; opacity: 0"></a-sphere>
+    </a-camera>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 20"></a-entity>
+    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 20"></a-entity>
+  </a-entity>
+</a-scene>
+
+<script>
+const SCENES = {
+  s1: {
+    img: '#img1', skyRot: 0,
+    portals: [
+      { to: 's2', label: 'Pretville Street' },
+      { to: 's4', label: 'Shanghai (Bund)' }
+    ],
+    info: { yaw: 0, y: 1.6, title: 'Valley of Desolation',
+            text: 'Camdeboo, South Africa. A rocky valley with cliffs and scrub at golden hour.' }
+  },
+  s2: {
+    img: '#img2', skyRot: 0,
+    portals: [
+      { to: 's4', label: 'Shanghai (Bund)' },
+      { to: 's1', label: 'Valley of Desolation' }
+    ],
+    info: { yaw: 0, y: 1.6, title: 'Pretville Street',
+            text: 'Street of a movie set with 1950s aesthetics, in South Africa.' }
+  },
+  s4: {
+    img: '#img4', skyRot: 0,
+    portals: [
+      { to: 's1', label: 'Valley of Desolation' },
+      { to: 's2', label: 'Pretville Street' }
+    ],
+    info: { yaw: 0, y: 1.6, title: 'The Bund, Shanghai',
+            text: 'Skyline of neon lights at night, illuminated walkway and reflections on the river.' }
+  }
+};
+
+const RADIUS = 6;
+const sky = document.getElementById('sky');
+const hotspots = document.getElementById('hotspots');
+const fade = document.getElementById('fade');
+let busy = false;
+
+function positionOnSphere(el, yaw, y, r) {
+  const a = THREE.MathUtils.degToRad(yaw);
+  el.setAttribute('position', `${r * Math.sin(a)} ${y} ${-r * Math.cos(a)}`);
+  el.setAttribute('rotation', `0 ${-yaw} 0`);
+}
+
+const PPM = 400;
+const FONT = '"Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif';
+const SPACING = '3px';
+
+function drawBox(w, h, hover, radius = 56) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.beginPath(); x.roundRect(2, 2, w - 4, h - 4, radius);
+  x.fillStyle = hover ? 'rgba(34,42,56,0.76)' : 'rgba(18,24,34,0.62)';
+  x.fill();
+  x.lineWidth = 2; x.strokeStyle = hover ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.10)'; x.stroke();
+  return [c, x];
+}
+
+function setTexture(el, canvas) {
+  el.setAttribute('material', { shader: 'flat', src: canvas.toDataURL(), transparent: true });
+}
+
+function makePortal(p, yaw, y) {
+  const portal = document.createElement('a-entity');
+  positionOnSphere(portal, yaw, y, RADIUS);
+
+  portal.innerHTML = `
+    <a-ring radius-inner="0.5" radius-outer="0.56" color="#fff"
+            material="shader: flat; side: double"></a-ring>
+    <a-circle radius="0.5" color="#fff" material="shader: flat; opacity: 0.12; transparent: true; side: double"></a-circle>
+    <a-circle class="clickable hit" radius="0.6" position="0 0 0.02"
+              material="shader: flat; opacity: 0; transparent: true; side: double"></a-circle>
+    <a-plane class="label" position="0 -0.9 0.01"></a-plane>
+  `;
+  const ring = portal.querySelector('a-ring');
+  const hit = portal.querySelector('.hit');
+  const label = portal.querySelector('.label');
+
+  const drawLabel = hover => {
+    const m = document.createElement('canvas').getContext('2d');
+    const text = p.label.toUpperCase();
+    m.font = `500 50px ${FONT}`; m.letterSpacing = SPACING;
+    const w = Math.ceil(m.measureText(text).width) + 110, h = 124;
+    const [c, x] = drawBox(w, h, hover, h / 2);
+    x.font = `500 50px ${FONT}`; x.letterSpacing = SPACING; x.fillStyle = '#fff';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, w / 2 + 2, h / 2 + 2);
+    label.setAttribute('width', w / PPM); label.setAttribute('height', h / PPM);
+    setTexture(label, c);
+  };
+  drawLabel(false);
+
+  ring.setAttribute('animation__pulse',
+    'property: scale; from: 1 1 1; to: 1.06 1.06 1.06; dir: alternate; loop: true; dur: 900; easing: easeInOutSine');
+  hit.addEventListener('mouseenter', () => {
+    ring.setAttribute('color', '#00e5ff');
+    portal.setAttribute('scale', '1.15 1.15 1.15');
+    drawLabel(true);
+  });
+  hit.addEventListener('mouseleave', () => {
+    ring.setAttribute('color', '#fff');
+    portal.setAttribute('scale', '1 1 1');
+    drawLabel(false);
+  });
+  hit.addEventListener('click', () => goTo(p.to));
+  portal.setAttribute('animation__in',
+    'property: scale; from: 0.01 0.01 0.01; to: 1 1 1; dur: 300; easing: easeOutBack');
+  return portal;
+}
+
+const FOLDER_Y = -0.05;
+const PORTAL_START = 30;
+const PORTAL_STEP = 30;
+let folderOpen = false;
+let portalBox = null;
+let folderPlane = null;
+let folderHover = false;
+
+function drawFolder() {
+  const [c, x] = drawBox(1400, 360, folderHover);
+  x.textBaseline = 'alphabetic';
+  x.letterSpacing = SPACING;
+  x.fillStyle = '#00e5ff'; x.font = `600 68px ${FONT}`;
+  x.fillText('PORTALS', 70, 150);
+  x.fillStyle = '#fff'; x.font = `400 46px ${FONT}`;
+  x.fillText(folderOpen ? 'CLICK TO HIDE THE PORTALS' : 'CLICK TO SEE THE OTHER PORTALS', 70, 245);
+  x.save(); x.translate(1290, 180); x.rotate(folderOpen ? Math.PI / 2 : 0);
+  x.beginPath(); x.moveTo(-10, -22); x.lineTo(14, 0); x.lineTo(-10, 22);
+  x.lineWidth = 7; x.lineCap = x.lineJoin = 'round'; x.strokeStyle = '#00e5ff'; x.stroke();
+  x.restore();
+  setTexture(folderPlane, c);
+}
+
+function setFolderOpen(open, scene) {
+  folderOpen = open;
+  portalBox.innerHTML = '';
+  drawFolder();
+  if (!open) return;
+  scene.portals.forEach((p, i) => {
+    const side = i % 2 === 0 ? -1 : 1;
+    const yaw = side * (PORTAL_START + Math.floor(i / 2) * PORTAL_STEP);
+    portalBox.appendChild(makePortal(p, yaw, FOLDER_Y));
+  });
+}
+
+function makeFolder(scene) {
+  const box = document.createElement('a-entity');
+  positionOnSphere(box, 0, FOLDER_Y, RADIUS - 0.5);
+  folderPlane = document.createElement('a-plane');
+  folderPlane.setAttribute('width', 3.5);
+  folderPlane.setAttribute('height', 0.9);
+  folderPlane.classList.add('clickable');
+  box.appendChild(folderPlane);
+  folderHover = false;
+  drawFolder();
+
+  folderPlane.addEventListener('mouseenter', () => { folderHover = true; drawFolder(); box.setAttribute('scale', '1.03 1.03 1.03'); });
+  folderPlane.addEventListener('mouseleave', () => { folderHover = false; drawFolder(); box.setAttribute('scale', '1 1 1'); });
+  folderPlane.addEventListener('click', () => setFolderOpen(!folderOpen, scene));
+  return box;
+}
+
+function makePanel(info) {
+  const W = 1400, pad = 70, lh = 80;
+  const m = document.createElement('canvas').getContext('2d');
+  m.font = `400 52px ${FONT}`; m.letterSpacing = SPACING;
+  const lines = [];
+  let line = '';
+  info.text.toUpperCase().split(' ').forEach(w => {
+    const t = line ? line + ' ' + w : w;
+    if (m.measureText(t).width > W - pad * 2 && line) { lines.push(line); line = w; } else line = t;
+  });
+  lines.push(line);
+
+  const H = pad + 160 + (lines.length - 1) * lh + pad - 10;
+  const [c, x] = drawBox(W, H, false);
+  x.textBaseline = 'alphabetic';
+  x.letterSpacing = SPACING;
+  x.fillStyle = '#00e5ff'; x.font = `600 68px ${FONT}`;
+  x.fillText(info.title.toUpperCase(), pad, pad + 66);
+  x.fillStyle = 'rgba(255,255,255,0.25)'; x.fillRect(pad, pad + 96, W - pad * 2, 2);
+  x.fillStyle = '#fff'; x.font = `400 52px ${FONT}`;
+  lines.forEach((l, i) => x.fillText(l, pad, pad + 160 + i * lh));
+
+  const panel = document.createElement('a-entity');
+  positionOnSphere(panel, info.yaw, info.y, RADIUS - 0.5);
+  const plane = document.createElement('a-plane');
+  plane.setAttribute('width', W / PPM);
+  plane.setAttribute('height', H / PPM);
+  setTexture(plane, c);
+  panel.appendChild(plane);
+  return panel;
+}
+
+function loadScene(id) {
+  const s = SCENES[id];
+  sky.setAttribute('src', s.img);
+  sky.setAttribute('rotation', `0 ${s.skyRot || 0} 0`);
+  hotspots.innerHTML = '';
+  hotspots.appendChild(makePanel(s.info));
+  hotspots.appendChild(makeFolder(s));
+  portalBox = document.createElement('a-entity');
+  hotspots.appendChild(portalBox);
+  folderOpen = false;
+}
+
+function tweenFade(from, to, ms) {
+  return new Promise(res => {
+    fade.removeAttribute('animation__fade');
+    fade.setAttribute('material', 'opacity', from);
+    fade.addEventListener('animationcomplete__fade', res, { once: true });
+    fade.setAttribute('animation__fade', {
+      property: 'material.opacity',
+      from, to,
+      dur: ms,
+      easing: 'linear'
+    });
+  });
+}
+
+async function goTo(id) {
+  if (busy) return;
+  busy = true;
+  try {
+    await tweenFade(0, 1, 350);
+    loadScene(id);
+    await tweenFade(1, 0, 350);
+  } finally {
+    busy = false;
+  }
+}
+
+document.getElementById('scene').addEventListener('loaded', async () => {
+  try {
+    await Promise.all([
+      document.fonts.load('400 40px "Montserrat"'),
+      document.fonts.load('500 40px "Montserrat"'),
+      document.fonts.load('600 40px "Montserrat"')
+    ]);
+  } catch (e) {}
+  loadScene('s1');
+});
+</script>
+</body>
+</html>
