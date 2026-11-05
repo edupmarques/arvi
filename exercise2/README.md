@@ -53,8 +53,3 @@ A small 3D user interface built with **A-Frame**: a control console that switche
 ## Testing
 
 The project was tested in Google Chrome using the **Immersive Web Emulator** browser extension by Meta, with the **Meta Quest 2** headset selected as the emulated device. Both the controller input mode and the hand input mode were tested.
-
-## Built With
-
-* [A-Frame](https://aframe.io/) 1.8.0
-* [aframe-event-set-component](https://github.com/supermedium/aframe-event-set-component)
